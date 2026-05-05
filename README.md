@@ -1,5 +1,9 @@
 # ai-sandbox
 
+[![ci](https://github.com/aktech/ai-sandbox/actions/workflows/ci.yml/badge.svg)](https://github.com/aktech/ai-sandbox/actions/workflows/ci.yml)
+[![image](https://github.com/aktech/ai-sandbox/actions/workflows/image.yml/badge.svg)](https://github.com/aktech/ai-sandbox/actions/workflows/image.yml)
+[![release](https://github.com/aktech/ai-sandbox/actions/workflows/release.yml/badge.svg)](https://github.com/aktech/ai-sandbox/actions/workflows/release.yml)
+
 Run AI coding agents (Claude Code, pi, etc.) in a Docker container instead
 of directly on your laptop. Each project gets its own container, and the
 container can only see the folders you explicitly mount in. If the agent
