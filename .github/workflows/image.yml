@@ -5,12 +5,12 @@ on:
     branches: [main]
     paths:
       - 'Dockerfile'
-      - 'build.sh'
+      - 'main.go'
       - '.github/workflows/image.yml'
   pull_request:
     paths:
       - 'Dockerfile'
-      - 'build.sh'
+      - 'main.go'
       - '.github/workflows/image.yml'
 
 permissions:
