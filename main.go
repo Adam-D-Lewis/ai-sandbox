@@ -371,6 +371,9 @@ func main() {
 		SharedDir: envDefault("PSB_SHARED_DIR", filepath.Join(home, "sb-shared")),
 	}
 	cfg := loadConfig(cfgPath(), cwd, base)
+	if len(cfg.Mounts) == 0 {
+		cfg.Mounts = []string{"{{CWD}}"}
+	}
 
 	name, err := containerName("psb")
 	if err != nil {
