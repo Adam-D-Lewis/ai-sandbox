@@ -1,0 +1,71 @@
+package cfg
+
+import (
+	"os"
+	"path/filepath"
+	"reflect"
+	"testing"
+)
+
+// writeCfg writes JSON to a temp file and returns its path.
+func writeCfg(t *testing.T, body string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+// Resolve must fall back to mounting the current working directory when
+// no config file exists. Without this, a fresh install creates a
+// container with zero bind mounts and the user sees an empty workdir.
+func TestResolve_MissingFile_FallsBackToCWD(t *testing.T) {
+	got := Resolve(filepath.Join(t.TempDir(), "absent.json"), "/anywhere", Effective{})
+
+	want := []string{"{{CWD}}"}
+	if !reflect.DeepEqual(got.Mounts, want) {
+		t.Fatalf("Mounts = %#v, want %#v", got.Mounts, want)
+	}
+}
+
+// A config that exists but lists no mounts (after merging Default + the
+// project entry) must still fall back to CWD. Without this, a user who
+// defines `extra_mounts` only would silently lose the project mount.
+func TestResolve_EmptyMountsInConfig_FallsBackToCWD(t *testing.T) {
+	path := writeCfg(t, `{"default": {"extra_mounts": ["/etc"]}}`)
+	got := Resolve(path, "/anywhere", Effective{})
+
+	want := []string{"{{CWD}}"}
+	if !reflect.DeepEqual(got.Mounts, want) {
+		t.Fatalf("Mounts = %#v, want %#v", got.Mounts, want)
+	}
+}
+
+// When the user lists explicit mounts, the fallback must not fire — even
+// if {{CWD}} is absent. Adding it would change a user-authored list and
+// surprise people who deliberately scope their sandbox.
+func TestResolve_ExplicitMounts_NoFallback(t *testing.T) {
+	path := writeCfg(t, `{"default": {"mounts": ["/srv/data"]}}`)
+	got := Resolve(path, "/anywhere", Effective{})
+
+	want := []string{"/srv/data"}
+	if !reflect.DeepEqual(got.Mounts, want) {
+		t.Fatalf("Mounts = %#v, want %#v", got.Mounts, want)
+	}
+}
+
+// Project-keyed mounts count too — fallback must not fire when only the
+// project entry supplies mounts.
+func TestResolve_ProjectOnlyMounts_NoFallback(t *testing.T) {
+	path := writeCfg(t, `{
+		"default":  {},
+		"projects": {"/work/foo": {"mounts": ["/work/foo/src"]}}
+	}`)
+	got := Resolve(path, "/work/foo", Effective{})
+
+	want := []string{"/work/foo/src"}
+	if !reflect.DeepEqual(got.Mounts, want) {
+		t.Fatalf("Mounts = %#v, want %#v", got.Mounts, want)
+	}
+}

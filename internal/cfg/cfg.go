@@ -1,0 +1,95 @@
+// Package cfg loads the per-project psb config and merges it with
+// caller-provided defaults into a single Effective config.
+//
+// File schema (~/.config/ai-sandbox/config.json):
+//
+//	{
+//	  "default":  { "memory": "8g", "mounts": ["{{CWD}}"], "extra_mounts": [...] },
+//	  "projects": { "/path/to/project": { "memory": "16g", "extra_mounts": [...] } }
+//	}
+//
+// Resolve returns the Effective config used to create a sandbox. If the
+// file is missing or its `mounts` array is empty after merging Default
+// and the project override, Resolve falls back to mounting the current
+// working directory — without it a fresh install would create a
+// container with zero bind mounts and an empty workdir.
+package cfg
+
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+)
+
+// Project mirrors one entry under "default" or "projects.<path>" in the
+// JSON file. CPUs is `any` because users write either 4 or "4".
+type Project struct {
+	Memory      string   `json:"memory,omitempty"`
+	CPUs        any      `json:"cpus,omitempty"`
+	Image       string   `json:"image,omitempty"`
+	Mounts      []string `json:"mounts,omitempty"`       // declarative mount list (replaces defaults)
+	ExtraMounts []string `json:"extra_mounts,omitempty"` // appended after mounts
+}
+
+// File is the top-level JSON document.
+type File struct {
+	Default  Project            `json:"default"`
+	Projects map[string]Project `json:"projects"`
+}
+
+// Effective is the merged config a caller actually uses. Mounts/ExtraMounts
+// hold raw strings (with placeholders); expansion is the mountresolver's job.
+type Effective struct {
+	Image       string
+	Memory      string
+	CPUs        string
+	SharedDir   string
+	Mounts      []string
+	ExtraMounts []string
+}
+
+// Resolve loads `path`, merges Default and the project entry keyed by
+// `project` into `base`, and returns the result. A missing or unreadable
+// file is treated as empty config (base wins). A malformed file logs a
+// warning to stderr and is treated as empty.
+func Resolve(path, project string, base Effective) Effective {
+	cfg := base
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return withDefaults(cfg) // missing file is fine
+	}
+	var raw File
+	if err := json.Unmarshal(data, &raw); err != nil {
+		fmt.Fprintf(os.Stderr, "warn: %s parse failed: %v\n", path, err)
+		return withDefaults(cfg)
+	}
+	apply := func(p Project) {
+		if p.Memory != "" {
+			cfg.Memory = p.Memory
+		}
+		if p.Image != "" {
+			cfg.Image = p.Image
+		}
+		if p.CPUs != nil {
+			cfg.CPUs = fmt.Sprintf("%v", p.CPUs)
+		}
+		cfg.Mounts = append(cfg.Mounts, p.Mounts...)
+		cfg.ExtraMounts = append(cfg.ExtraMounts, p.ExtraMounts...)
+	}
+	apply(raw.Default)
+	if pc, ok := raw.Projects[project]; ok {
+		apply(pc)
+	}
+	return withDefaults(cfg)
+}
+
+// withDefaults guarantees the resolved config has at least one bind mount.
+// Empty Mounts after merging Default + project means the user did not list
+// any — fall back to the current working directory so the project itself
+// is visible inside the sandbox.
+func withDefaults(c Effective) Effective {
+	if len(c.Mounts) == 0 {
+		c.Mounts = []string{"{{CWD}}"}
+	}
+	return c
+}
