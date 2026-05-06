@@ -19,6 +19,7 @@
 package main
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -30,6 +31,9 @@ import (
 	"github.com/aktech/ai-sandbox/internal/dx"
 	"github.com/aktech/ai-sandbox/internal/mountresolver"
 )
+
+//go:embed Dockerfile
+var embeddedDockerfile []byte
 
 // ---------- config types ----------
 
@@ -86,10 +90,10 @@ func (l *logger) tag(c, msg string) string {
 	return fmt.Sprintf("\033[%sm[%s]\033[0m %s", c, l.prefix, msg)
 }
 
-func (l *logger) Log(msg string)   { fmt.Println(l.tag("0;36", msg)) }
-func (l *logger) Step(msg string)  { fmt.Println(l.tag("0;36", "→ "+msg)) }
-func (l *logger) OK(msg string)    { fmt.Println(l.tag("0;32", msg)) }
-func (l *logger) Warn(msg string)  { fmt.Fprintln(os.Stderr, l.tag("0;33", msg)) }
+func (l *logger) Log(msg string)  { fmt.Println(l.tag("0;36", msg)) }
+func (l *logger) Step(msg string) { fmt.Println(l.tag("0;36", "→ "+msg)) }
+func (l *logger) OK(msg string)   { fmt.Println(l.tag("0;32", msg)) }
+func (l *logger) Warn(msg string) { fmt.Fprintln(os.Stderr, l.tag("0;33", msg)) }
 func (l *logger) Die(msg string, code int) {
 	fmt.Fprintln(os.Stderr, l.tag("0;31", msg))
 	os.Exit(code)
@@ -287,11 +291,49 @@ func cmdLS(docker dx.Executor) error {
 	return nil
 }
 
-func cmdBuild(scriptDir string) error {
-	cmd := exec.Command("bash", filepath.Join(scriptDir, "build.sh"))
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+func cmdBuild(log *logger) error {
+	image := envDefault("PSB_IMAGE_NAME", "ai-sandbox-pi:latest")
+	piVersion := envDefault("PI_VERSION", "latest")
+	uid := fmt.Sprintf("%d", os.Getuid())
+	gid := fmt.Sprintf("%d", os.Getgid())
+	home := os.Getenv("HOME")
+	if home == "" {
+		return fmt.Errorf("HOME not set")
+	}
+
+	tmp, err := os.MkdirTemp("", "psb-build-*")
+	if err != nil {
+		return fmt.Errorf("temp dir: %w", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	if err := os.WriteFile(filepath.Join(tmp, "Dockerfile"), embeddedDockerfile, 0o644); err != nil {
+		return fmt.Errorf("write Dockerfile: %w", err)
+	}
+
+	log.Step(fmt.Sprintf("building %s (pi=%s, home=%s, uid=%s, gid=%s)", image, piVersion, home, uid, gid))
+	build := exec.Command("docker", "build",
+		"--build-arg", "PI_VERSION="+piVersion,
+		"--build-arg", "AGENT_UID="+uid,
+		"--build-arg", "AGENT_GID="+gid,
+		"--build-arg", "AGENT_HOME="+home,
+		"-t", image,
+		tmp,
+	)
+	build.Stdout = os.Stdout
+	build.Stderr = os.Stderr
+	if err := build.Run(); err != nil {
+		return err
+	}
+
+	log.OK("built " + image)
+	list := exec.Command("docker", "images",
+		"--format", "table {{.Repository}}:{{.Tag}}\t{{.Size}}\t{{.CreatedSince}}",
+		image,
+	)
+	list.Stdout = os.Stdout
+	list.Stderr = os.Stderr
+	return list.Run()
 }
 
 // ---------- main ----------
@@ -327,24 +369,6 @@ Env vars (override config defaults):
   PSB_CONFIG_FILE  config file path (default: ~/.config/ai-sandbox/config.json)
   HOMELAB_URL      passed through to container
   ANTHROPIC_API_KEY passed through to container (claude API auth)`)
-}
-
-func resolveScriptDir(argv0 string) string {
-	// argv0 may be a bare name found via $PATH ("psb"), a relative path,
-	// or absolute. LookPath handles all three.
-	path, err := exec.LookPath(argv0)
-	if err != nil {
-		path = argv0
-	}
-	abs, err := filepath.Abs(path)
-	if err != nil {
-		return "."
-	}
-	resolved, err := filepath.EvalSymlinks(abs)
-	if err != nil {
-		resolved = abs
-	}
-	return filepath.Dir(filepath.Dir(resolved)) // bin/psb → ../
 }
 
 func main() {
@@ -412,7 +436,7 @@ func main() {
 			log.Die(err.Error(), 1)
 		}
 	case "build":
-		if err := cmdBuild(resolveScriptDir(os.Args[0])); err != nil {
+		if err := cmdBuild(log); err != nil {
 			log.Die(err.Error(), 1)
 		}
 	case "-h", "--help", "help":
