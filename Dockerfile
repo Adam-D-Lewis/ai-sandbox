@@ -50,6 +50,11 @@ python = "3.14.4"
 uv     = "0.11.11"
 pixi   = "0.68.0"
 gh     = "2.92.0"
+# Google Workspace CLI — not in mise's named registry. Fetched via the ubi
+# backend from googleworkspace/cli's GitHub releases. The tarball ships a
+# `gws` binary; the `exe` override is required because ubi's default would
+# look for the repo name (`cli`).
+"ubi:googleworkspace/cli" = { version = "0.22.5", exe = "gws" }
 TOML
 
 RUN set -e \
@@ -66,7 +71,8 @@ RUN set -e \
  && python --version \
  && uv --version \
  && pixi --version \
- && gh --version
+ && gh --version \
+ && gws --version
 
 # claude-code via mise's node, then reshim so /usr/local/share/mise/shims/claude
 # appears for both root build and the agent user at runtime.
@@ -129,6 +135,7 @@ RUN set -e \
       uv     --version && \
       pixi   --version && \
       gh     --version && \
+      gws    --version && \
       claude --version && \
       pi     --version    \
     '
