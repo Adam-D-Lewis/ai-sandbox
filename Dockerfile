@@ -53,8 +53,10 @@ gh     = "2.92.0"
 # Google Workspace CLI — not in mise's named registry. Fetched via the ubi
 # backend from googleworkspace/cli's GitHub releases. The tarball ships a
 # `gws` binary; the `exe` override is required because ubi's default would
-# look for the repo name (`cli`).
-"ubi:googleworkspace/cli" = { version = "0.22.5", exe = "gws" }
+# look for the repo name (`cli`). `matching = "musl"` picks the statically
+# linked variant — the glibc build requires GLIBC_2.39 which Debian bookworm
+# doesn't have.
+"ubi:googleworkspace/cli" = { version = "0.22.5", exe = "gws", matching = "musl" }
 TOML
 
 RUN set -e \
