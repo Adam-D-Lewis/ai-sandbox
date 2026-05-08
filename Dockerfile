@@ -31,18 +31,11 @@ RUN apt-get update -qq \
       tini zsh \
  && rm -rf /var/lib/apt/lists/* /var/cache/apt/* /var/log/apt/*
 
-# mise — pinned binary release, dropped at /usr/local/bin/mise.
+# mise — official installer (https://mise.run). MISE_VERSION pins the release;
+# MISE_INSTALL_PATH puts the binary system-wide.
 RUN set -e \
- && case "$TARGETARCH" in \
-      arm64) ARCH=arm64 ;; \
-      amd64) ARCH=x64 ;; \
-      *) echo "unsupported arch: $TARGETARCH"; exit 1 ;; \
-    esac \
- && curl -fsSL -o /tmp/mise.tgz "https://github.com/jdx/mise/releases/download/${MISE_VERSION}/mise-${MISE_VERSION}-linux-${ARCH}.tar.gz" \
- && mkdir -p /tmp/mise-extract \
- && tar -xzf /tmp/mise.tgz -C /tmp/mise-extract \
- && mv /tmp/mise-extract/mise/bin/mise /usr/local/bin/mise \
- && rm -rf /tmp/mise-extract /tmp/mise.tgz \
+ && curl -fsSL https://mise.run \
+      | env MISE_VERSION=${MISE_VERSION} MISE_INSTALL_PATH=/usr/local/bin/mise sh \
  && mise --version
 
 # Tool versions live in /etc/mise/config.toml. One source of truth — bump here,
