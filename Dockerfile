@@ -123,6 +123,7 @@ RUN set -e \
       "$AGENT_HOME/dev" \
       "$AGENT_HOME/sb-shared" \
  && chown -R agent:hoststaff "$AGENT_HOME" \
+ && chown -R agent:hoststaff "$MISE_DATA_DIR" "$MISE_CONFIG_DIR" "$MISE_CACHE_DIR" \
  && echo 'agent ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/agent \
  && chmod 0440 /etc/sudoers.d/agent
 
