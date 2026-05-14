@@ -44,12 +44,14 @@ RUN set -e \
  && mkdir -p "$MISE_CONFIG_DIR" "$MISE_CACHE_DIR" "$MISE_DATA_DIR" \
  && cat > "$MISE_CONFIG_DIR/config.toml" <<'TOML'
 [tools]
-node   = "24"
-go     = "1.26.2"
-python = "3.14.4"
-uv     = "0.11.11"
-pixi   = "0.68.0"
-gh     = "2.92.0"
+node    = "24"
+go      = "1.26.2"
+python  = "3.14.4"
+uv      = "0.11.11"
+pixi    = "0.68.0"
+gh      = "2.92.0"
+kubectl = "1.36.1"
+k9s     = "0.50.18"
 # Google Workspace CLI — not in mise's named registry. Fetched via the ubi
 # backend from googleworkspace/cli's GitHub releases. The tarball ships a
 # `gws` binary; the `exe` override is required because ubi's default would
@@ -74,16 +76,9 @@ RUN set -e \
  && uv --version \
  && pixi --version \
  && gh --version \
- && gws --version
-
-# claude-code via mise's node, then reshim so /usr/local/share/mise/shims/claude
-# appears for both root build and the agent user at runtime.
-RUN set -e \
- && npm install -g --no-audit --no-fund @anthropic-ai/claude-code \
- && npm cache clean --force \
- && rm -rf /root/.npm \
- && mise reshim \
- && claude --version
+ && gws --version \
+ && kubectl version --client=true \
+ && k9s version
 
 # Install pi from upstream release tarball. Tarball ships docs/, examples/,
 # CHANGELOG.md, README.md, assets/, export-html/ — none touched by the running
@@ -127,20 +122,36 @@ RUN set -e \
  && echo 'agent ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/agent \
  && chmod 0440 /etc/sudoers.d/agent
 
+# claude-code via the native installer, run as the agent user so the binary
+# lands in $HOME/.local/bin (user-owned, writable). The previous `npm install -g`
+# under /usr/local/share/mise tripped claude's "system install → needs sudo"
+# heuristic even when the dir was chowned to agent, breaking in-container
+# auto-updates. Container is meant to stay mutable so agents can self-update.
+# ENV PATH set BEFORE the install so the bootstrap doesn't warn about missing PATH.
+ENV PATH=${AGENT_HOME}/.local/bin:${PATH}
+RUN set -e \
+ && su -s /bin/sh agent -c ' \
+      export HOME='"$AGENT_HOME"' PATH='"$AGENT_HOME"'/.local/bin:$PATH && \
+      curl -fsSL https://claude.ai/install.sh | bash && \
+      claude --version \
+    '
+
 # Confirm shims resolve under the unprivileged user too — catches perm bugs at
 # build time rather than first `psb` shell.
 RUN set -e \
  && su -s /bin/sh agent -c ' \
-      mise   --version && \
-      node   --version && \
-      go     version   && \
-      python --version && \
-      uv     --version && \
-      pixi   --version && \
-      gh     --version && \
-      gws    --version && \
-      claude --version && \
-      pi     --version    \
+      mise    --version && \
+      node    --version && \
+      go      version   && \
+      python  --version && \
+      uv      --version && \
+      pixi    --version && \
+      gh      --version && \
+      gws     --version && \
+      kubectl version --client=true && \
+      k9s     version && \
+      claude  --version && \
+      pi      --version    \
     '
 
 USER agent
