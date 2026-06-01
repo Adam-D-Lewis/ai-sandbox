@@ -1,6 +1,7 @@
 // Package mountresolver turns a project's declarative mount config into
-// the final, ordered, deduped, existence-filtered list of host paths used
-// for `-v src:src` arguments to docker.
+// the final, ordered, deduped, existence-filtered list of "src:dest" specs
+// used for `-v` arguments to docker. Entries are "src" (dest defaults to
+// src) or "src:dest" to remap the path inside the container.
 //
 // One entry point: Resolve.
 package mountresolver
@@ -26,8 +27,12 @@ type Warner interface {
 }
 
 // Resolve expands placeholders ({{HOME}}, {{CWD}}, {{SHARED_DIR}}, ~/, $VAR),
-// dedupes each bucket independently, filters via os.Stat, and returns host
-// paths ready for `-v src:src`. log may be nil.
+// dedupes each bucket independently, filters via os.Stat on the source, and
+// returns "src:dest" strings ready for `docker -v`. log may be nil.
+//
+// Each config entry is either "src" (dest defaults to src — the historical
+// behavior) or "src:dest" to mount the host path at a different path inside
+// the container. Both sides are expanded independently.
 //
 // Mounts and extras are concatenated in that order. The full mount list is
 // expected to come from config; this package does not supply defaults.
@@ -45,7 +50,20 @@ func expandAll(in []string, env Env) []string {
 	return out
 }
 
+// expand turns one raw config entry into a "src:dest" spec. An entry without
+// a colon mounts the source at the same path inside the container; "src:dest"
+// remaps it. Each side is expanded independently — host paths never contain a
+// colon on the platforms psb targets, so the first colon delimits the two.
 func expand(s string, env Env) string {
+	src, dst, hasDst := strings.Cut(s, ":")
+	src = expandPath(src, env)
+	if !hasDst {
+		return src + ":" + src
+	}
+	return src + ":" + expandPath(dst, env)
+}
+
+func expandPath(s string, env Env) string {
 	s = strings.ReplaceAll(s, "{{HOME}}", env.Home)
 	s = strings.ReplaceAll(s, "{{SHARED_DIR}}", env.SharedDir)
 	s = strings.ReplaceAll(s, "{{CWD}}", env.CWD)
@@ -70,16 +88,17 @@ func dedupe(list []string) []string {
 	return out
 }
 
-func filterExisting(paths []string, log Warner) []string {
-	out := make([]string, 0, len(paths))
-	for _, p := range paths {
-		if _, err := os.Stat(p); err != nil {
+func filterExisting(specs []string, log Warner) []string {
+	out := make([]string, 0, len(specs))
+	for _, spec := range specs {
+		src, _, _ := strings.Cut(spec, ":")
+		if _, err := os.Stat(src); err != nil {
 			if log != nil {
-				log.Warn("skip missing mount: " + p)
+				log.Warn("skip missing mount: " + src)
 			}
 			continue
 		}
-		out = append(out, p)
+		out = append(out, spec)
 	}
 	return out
 }

@@ -76,7 +76,7 @@ type ContainerSpec struct {
 	Hostname string            // defaults to Name when empty
 	Labels   map[string]string // --label k=v
 	Env      map[string]string // -e K=V (empty values skipped)
-	Mounts   []string          // -v src:src per entry
+	Mounts   []string          // -v <entry> per item; each is a "src:dest" spec
 }
 
 // Info is the parsed output of Inspect for one container.
@@ -187,8 +187,8 @@ func Create(e Executor, s ContainerSpec) error {
 		}
 		args = append(args, "-e", k+"="+v)
 	}
-	for _, src := range s.Mounts {
-		args = append(args, "-v", src+":"+src)
+	for _, m := range s.Mounts {
+		args = append(args, "-v", m)
 	}
 	args = append(args, s.Image)
 	return e.Run(args...)
