@@ -69,13 +69,16 @@ list in a config file:
 }
 ```
 
-- `mounts` — the full list. Each entry becomes a `-v src:src` bind mount.
+- `mounts` — the full list. Each entry becomes a `-v` bind mount. Write
+  `src` to mount a host path at the same path inside the container, or
+  `src:dest` to mount it at a different path (e.g. a repo-local gitconfig
+  at `~/.gitconfig` inside the sandbox).
 - `extra_mounts` — appended to `mounts`. Use for per-project additions.
 - `memory`, `cpus`, `image` — optional per-project overrides.
 
 Placeholders: `{{HOME}}`, `{{CWD}}`, `{{SHARED_DIR}}`. Shell-style `~/`
-and `$VAR` also work. Paths that don't exist on the host are skipped
-with a warning.
+and `$VAR` also work, on both sides of a `src:dest` entry. Paths that
+don't exist on the host are skipped with a warning.
 
 ## Environment overrides
 

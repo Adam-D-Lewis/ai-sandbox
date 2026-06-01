@@ -15,7 +15,8 @@
 //	}
 //
 // "mounts" replaces the built-in default list.  Use {{HOME}}, {{SHARED_DIR}},
-// {{CWD}} as placeholders, or ~/ and $VAR for shell-style expansion.
+// {{CWD}} as placeholders, or ~/ and $VAR for shell-style expansion.  Each
+// entry is "src" (same path in the container) or "src:dest" to remap it.
 package main
 
 import (
@@ -163,7 +164,7 @@ Config file (JSON):
   ` + filepath.Join(os.Getenv("HOME"), ".config/ai-sandbox/config.json") + `
 
   Keys:
-    mounts         declarative mount list (one entry per -v src:src)
+    mounts         declarative mount list; each entry is "src" or "src:dest"
     extra_mounts   appended after mounts
     memory / cpus  resource limits
     image          custom image tag
