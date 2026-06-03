@@ -28,7 +28,7 @@ ENV PATH=/usr/local/share/mise/shims:/usr/local/sbin:/usr/local/bin:/usr/sbin:/u
 RUN apt-get update -qq \
  && apt-get install -y -qq --no-install-recommends \
       ca-certificates curl git tar sudo \
-      tini zsh \
+      tini zsh tmux \
  && rm -rf /var/lib/apt/lists/* /var/cache/apt/* /var/log/apt/*
 
 # mise — official installer (https://mise.run). MISE_VERSION pins the release;
