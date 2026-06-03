@@ -21,6 +21,7 @@ package main
 
 import (
 	_ "embed"
+	"flag"
 	"fmt"
 	"os"
 	"os/exec"
@@ -32,6 +33,21 @@ import (
 	"github.com/aktech/ai-sandbox/internal/cmd"
 	"github.com/aktech/ai-sandbox/internal/dx"
 )
+
+// labelFlags collects repeated -label k=v values for `psb create`.
+type labelFlags []string
+
+func (l *labelFlags) String() string     { return strings.Join(*l, ",") }
+func (l *labelFlags) Set(v string) error { *l = append(*l, v); return nil }
+func (l labelFlags) toMap() map[string]string {
+	m := map[string]string{}
+	for _, kv := range l {
+		if i := strings.IndexByte(kv, '='); i > 0 {
+			m[kv[:i]] = kv[i+1:]
+		}
+	}
+	return m
+}
 
 //go:embed Dockerfile
 var embeddedDockerfile []byte
@@ -226,6 +242,22 @@ func main() {
 	switch sub {
 	case "", "up":
 		dieOn(h.Up(name, c, home, cwd))
+	case "create":
+		// Non-interactive: prepare a sandbox (all configured mounts) and print
+		// its name. Lets other tools (e.g. darb) reuse psb's sandbox.
+		fs := flag.NewFlagSet("create", flag.ExitOnError)
+		workdir := fs.String("workdir", cwd, "project directory to sandbox")
+		nameOverride := fs.String("name", "", "container name (default: psb-<dir>)")
+		var labels labelFlags
+		fs.Var(&labels, "label", "extra container label k=v (repeatable)")
+		_ = fs.Parse(os.Args[2:])
+		wd := *workdir
+		cc := cfg.Resolve(cfgPath(), wd, base)
+		nm := *nameOverride
+		if nm == "" {
+			nm = "psb-" + sanitizeName(filepath.Base(wd))
+		}
+		dieOn(h.Create(nm, cc, home, wd, labels.toMap()))
 	case "stop":
 		dieOn(h.Stop(name))
 	case "rm", "remove":

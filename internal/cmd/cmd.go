@@ -35,9 +35,9 @@ type Handler struct {
 	Docker dx.Executor
 }
 
-// Up creates (or starts) the container for the project rooted at cwd and
-// replaces the current process with an interactive shell inside it.
-func (h Handler) Up(name string, c cfg.Effective, home, cwd string) error {
+// ensure creates the container (or starts it if it already exists) without
+// attaching a shell. extraLabels are added alongside the default psb.cwd label.
+func (h Handler) ensure(name string, c cfg.Effective, home, cwd string, extraLabels map[string]string) error {
 	h.Log.Log(fmt.Sprintf("project: %s  container: %s", filepath.Base(cwd), name))
 
 	if !dx.ImageExists(h.Docker, c.Image) {
@@ -54,14 +54,33 @@ func (h Handler) Up(name string, c cfg.Effective, home, cwd string) error {
 			h.Log.Log("container already running")
 		}
 	} else {
-		if err := h.create(name, c, home, cwd); err != nil {
+		if err := h.create(name, c, home, cwd, extraLabels); err != nil {
 			return err
 		}
 		h.Log.OK("container created")
 	}
+	return nil
+}
 
+// Up creates (or starts) the container for the project rooted at cwd and
+// replaces the current process with an interactive shell inside it.
+func (h Handler) Up(name string, c cfg.Effective, home, cwd string) error {
+	if err := h.ensure(name, c, home, cwd, nil); err != nil {
+		return err
+	}
 	h.Log.OK("entering shell — run `pi` (or `claude`) inside")
 	return dx.Shell(h.Docker, name)
+}
+
+// Create prepares the container non-interactively (no shell) and prints its
+// name to stdout, so other tools can layer on top of a psb sandbox while
+// reusing psb's mount/image configuration.
+func (h Handler) Create(name string, c cfg.Effective, home, cwd string, extraLabels map[string]string) error {
+	if err := h.ensure(name, c, home, cwd, extraLabels); err != nil {
+		return err
+	}
+	fmt.Println(name)
+	return nil
 }
 
 // Stop halts a running container without removing it.
@@ -150,21 +169,25 @@ func (h Handler) LS() error {
 }
 
 // create issues `docker run -d` for a fresh container. Internal helper
-// shared by Up.
-func (h Handler) create(name string, c cfg.Effective, home, cwd string) error {
+// shared by Up and Create. extraLabels are merged on top of psb.cwd.
+func (h Handler) create(name string, c cfg.Effective, home, cwd string, extraLabels map[string]string) error {
 	h.Log.Step(fmt.Sprintf("creating container %s (image=%s, mem=%s, cpus=%s)", name, c.Image, c.Memory, c.CPUs))
 	if err := os.MkdirAll(c.SharedDir, 0o755); err != nil {
 		return err
 	}
 	mounts := mountresolver.Resolve(c.Mounts, c.ExtraMounts,
 		mountresolver.Env{Home: home, CWD: cwd, SharedDir: c.SharedDir}, h.Log)
+	labels := map[string]string{"psb.cwd": cwd}
+	for k, v := range extraLabels {
+		labels[k] = v
+	}
 	return dx.Create(h.Docker, dx.ContainerSpec{
 		Name:    name,
 		Image:   c.Image,
 		Memory:  c.Memory,
 		CPUs:    c.CPUs,
 		Workdir: cwd,
-		Labels:  map[string]string{"psb.cwd": cwd},
+		Labels:  labels,
 		Env: map[string]string{
 			"HOME":              home,
 			"SB_SHARED":         c.SharedDir,
