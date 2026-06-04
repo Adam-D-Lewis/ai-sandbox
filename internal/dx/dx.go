@@ -77,6 +77,7 @@ type ContainerSpec struct {
 	Labels   map[string]string // --label k=v
 	Env      map[string]string // -e K=V (empty values skipped)
 	Mounts   []string          // -v <entry> per item; each is a "src:dest" spec
+	Ports    []string          // -p <entry> per item; each is a "host:container" spec
 }
 
 // Info is the parsed output of Inspect for one container.
@@ -189,6 +190,9 @@ func Create(e Executor, s ContainerSpec) error {
 	}
 	for _, m := range s.Mounts {
 		args = append(args, "-v", m)
+	}
+	for _, p := range s.Ports {
+		args = append(args, "-p", p)
 	}
 	args = append(args, s.Image)
 	return e.Run(args...)

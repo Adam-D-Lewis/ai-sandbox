@@ -102,6 +102,22 @@ func TestResolve_StarProjectKey_MatchesOneSegment(t *testing.T) {
 	}
 }
 
+// Ports declared at the default level and the matching project entry must
+// both reach Effective.Ports so a server inside the sandbox can be published
+// to the host. Default ports come first, project ports appended after.
+func TestResolve_PortsMergeDefaultAndProject(t *testing.T) {
+	path := writeCfg(t, `{
+		"default":  {"ports": ["9000:9000"]},
+		"projects": {"/work/foo": {"ports": ["3000:3000"]}}
+	}`)
+	got := Resolve(path, "/work/foo", Effective{})
+
+	want := []string{"9000:9000", "3000:3000"}
+	if !reflect.DeepEqual(got.Ports, want) {
+		t.Fatalf("Ports = %#v, want %#v", got.Ports, want)
+	}
+}
+
 func contains(xs []string, want string) bool {
 	for _, x := range xs {
 		if x == want {

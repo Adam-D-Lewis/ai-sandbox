@@ -195,5 +195,6 @@ func (h Handler) create(name string, c cfg.Effective, home, cwd string, extraLab
 			"ANTHROPIC_API_KEY": os.Getenv("ANTHROPIC_API_KEY"),
 		},
 		Mounts: mounts,
+		Ports:  c.Ports,
 	})
 }
