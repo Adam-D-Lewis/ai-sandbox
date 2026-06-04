@@ -252,6 +252,11 @@ func main() {
 		fs.Var(&labels, "label", "extra container label k=v (repeatable)")
 		_ = fs.Parse(os.Args[2:])
 		wd := *workdir
+		// Absolutise so a relative workdir (used for remote runs, relative to
+		// the SSH home) yields absolute docker bind-mount paths.
+		if abs, err := filepath.Abs(wd); err == nil {
+			wd = abs
+		}
 		cc := cfg.Resolve(cfgPath(), wd, base)
 		nm := *nameOverride
 		if nm == "" {
