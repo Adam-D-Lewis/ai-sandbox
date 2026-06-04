@@ -37,9 +37,8 @@ type Warner interface {
 // Mounts and extras are concatenated in that order. The full mount list is
 // expected to come from config; this package does not supply defaults.
 func Resolve(mounts, extraMounts []string, env Env, log Warner) []string {
-	primary := dedupe(expandAll(mounts, env))
-	extras := dedupe(expandAll(extraMounts, env))
-	return filterExisting(append(primary, extras...), log)
+	all := append(expandAll(mounts, env), expandAll(extraMounts, env)...)
+	return filterExisting(dedupeByDest(all), log)
 }
 
 func expandAll(in []string, env Env) []string {
@@ -75,15 +74,21 @@ func expandPath(s string, env Env) string {
 	return os.ExpandEnv(s)
 }
 
-func dedupe(list []string) []string {
-	seen := map[string]bool{}
-	out := list[:0]
-	for _, m := range list {
-		if seen[m] {
-			continue
+// dedupeByDest keeps one spec per container destination, preferring the LAST
+// occurrence so a project (or extra) mount overrides an earlier default mount
+// that targets the same path inside the container. Relative order is preserved.
+func dedupeByDest(list []string) []string {
+	lastAt := make(map[string]int, len(list))
+	for i, m := range list {
+		_, dst, _ := strings.Cut(m, ":") // src has no colon; dest is the remainder
+		lastAt[dst] = i
+	}
+	out := make([]string, 0, len(list))
+	for i, m := range list {
+		_, dst, _ := strings.Cut(m, ":")
+		if lastAt[dst] == i {
+			out = append(out, m)
 		}
-		seen[m] = true
-		out = append(out, m)
 	}
 	return out
 }

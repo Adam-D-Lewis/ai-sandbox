@@ -69,3 +69,44 @@ func TestResolve_ProjectOnlyMounts_NoFallback(t *testing.T) {
 		t.Fatalf("Mounts = %#v, want %#v", got.Mounts, want)
 	}
 }
+
+// A project key may be a glob: "**" matches any descendant path so a single
+// rule can route everything under a directory (e.g. all of ~/work).
+func TestResolve_GlobProjectKey_MatchesDescendants(t *testing.T) {
+	path := writeCfg(t, `{
+      "default":  {"mounts": ["/base"]},
+      "projects": {"/srv/work/**": {"extra_mounts": ["/work-creds"]}}
+    }`)
+	got := Resolve(path, "/srv/work/foo/bar", Effective{})
+	if !contains(got.ExtraMounts, "/work-creds") {
+		t.Fatalf("expected /work-creds for a descendant, got %#v", got.ExtraMounts)
+	}
+	// A non-matching path must not pick up the work rule.
+	got2 := Resolve(path, "/srv/personal/x", Effective{})
+	if contains(got2.ExtraMounts, "/work-creds") {
+		t.Fatalf("did not expect /work-creds for /srv/personal/x, got %#v", got2.ExtraMounts)
+	}
+}
+
+// A single-star glob matches one path segment (filepath.Match semantics), so
+// "~/darb-clones/nebari-*" matches a timestamped clone but not a nested path.
+func TestResolve_StarProjectKey_MatchesOneSegment(t *testing.T) {
+	path := writeCfg(t, `{
+      "projects": {"/clones/nebari-*": {"extra_mounts": ["/work-creds"]}}
+    }`)
+	if got := Resolve(path, "/clones/nebari-claude-20260604", Effective{}); !contains(got.ExtraMounts, "/work-creds") {
+		t.Fatalf("expected match, got %#v", got.ExtraMounts)
+	}
+	if got := Resolve(path, "/clones/cirun-claude-1", Effective{}); contains(got.ExtraMounts, "/work-creds") {
+		t.Fatalf("did not expect match for cirun, got %#v", got.ExtraMounts)
+	}
+}
+
+func contains(xs []string, want string) bool {
+	for _, x := range xs {
+		if x == want {
+			return true
+		}
+	}
+	return false
+}

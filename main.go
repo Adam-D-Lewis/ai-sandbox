@@ -248,6 +248,8 @@ func main() {
 		fs := flag.NewFlagSet("create", flag.ExitOnError)
 		workdir := fs.String("workdir", cwd, "project directory to sandbox")
 		nameOverride := fs.String("name", "", "container name (default: psb-<dir>)")
+		origin := fs.String("origin", "", "path matched against the projects config "+
+			"(default: workdir). Lets a caller running in a throwaway clone route by the real source folder.")
 		var labels labelFlags
 		fs.Var(&labels, "label", "extra container label k=v (repeatable)")
 		_ = fs.Parse(os.Args[2:])
@@ -257,7 +259,17 @@ func main() {
 		if abs, err := filepath.Abs(wd); err == nil {
 			wd = abs
 		}
-		cc := cfg.Resolve(cfgPath(), wd, base)
+		// Match the projects config against the origin (the real source folder)
+		// when provided, else the workdir. Mounts and the container workdir
+		// still use wd — only the config-matching key changes.
+		matchPath := wd
+		if *origin != "" {
+			matchPath = *origin
+			if abs, err := filepath.Abs(*origin); err == nil {
+				matchPath = abs
+			}
+		}
+		cc := cfg.Resolve(cfgPath(), matchPath, base)
 		nm := *nameOverride
 		if nm == "" {
 			nm = "psb-" + sanitizeName(filepath.Base(wd))

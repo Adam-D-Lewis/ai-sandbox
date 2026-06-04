@@ -19,6 +19,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 )
 
 // Project mirrors one entry under "default" or "projects.<path>" in the
@@ -77,10 +80,45 @@ func Resolve(path, project string, base Effective) Effective {
 		cfg.ExtraMounts = append(cfg.ExtraMounts, p.ExtraMounts...)
 	}
 	apply(raw.Default)
-	if pc, ok := raw.Projects[project]; ok {
-		apply(pc)
+	// Apply every project entry whose key matches `project`, least-specific
+	// (shortest key) first so a more-specific rule's mounts come later and win
+	// the by-destination dedupe in the mountresolver.
+	for _, key := range matchingKeys(raw.Projects, project) {
+		apply(raw.Projects[key])
 	}
 	return withDefaults(cfg)
+}
+
+// matchingKeys returns the project keys that match path, sorted by key length
+// ascending (specificity). A key may be an exact path, a "src/*" glob
+// (filepath.Match: one segment), or a "src/**" recursive prefix matching any
+// descendant. "~" at the start of a key expands to the user's home.
+func matchingKeys(projects map[string]Project, path string) []string {
+	var matched []string
+	for key := range projects {
+		if matchProject(expandHome(key), path) {
+			matched = append(matched, key)
+		}
+	}
+	sort.Slice(matched, func(i, j int) bool { return len(matched[i]) < len(matched[j]) })
+	return matched
+}
+
+func matchProject(pattern, path string) bool {
+	if base, ok := strings.CutSuffix(pattern, "/**"); ok {
+		return path == base || strings.HasPrefix(path, base+"/")
+	}
+	ok, _ := filepath.Match(pattern, path) // exact when the pattern has no glob metachars
+	return ok
+}
+
+func expandHome(p string) string {
+	if p == "~" || strings.HasPrefix(p, "~/") {
+		if home, err := os.UserHomeDir(); err == nil {
+			return filepath.Join(home, strings.TrimPrefix(p, "~"))
+		}
+	}
+	return p
 }
 
 // withDefaults guarantees the resolved config has at least one bind mount.

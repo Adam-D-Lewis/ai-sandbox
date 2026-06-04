@@ -54,3 +54,23 @@ func TestResolve_MissingSrc_Skipped(t *testing.T) {
 		t.Fatalf("got %#v, want empty", got)
 	}
 }
+
+// A later entry that targets the same destination overrides an earlier one,
+// so a project's mount can replace a default mount (e.g. a different Claude
+// account) without docker rejecting a duplicate mount point.
+func TestResolve_LaterDestOverridesEarlier(t *testing.T) {
+	home := t.TempDir()
+	personal := filepath.Join(home, "personal")
+	work := filepath.Join(home, "work")
+	touch(t, personal)
+	touch(t, work)
+
+	got := Resolve(
+		[]string{personal + ":/h/.creds"}, // default mount
+		[]string{work + ":/h/.creds"},      // project extra_mount, same dest -> wins
+		Env{Home: home}, nil)
+	want := []string{work + ":/h/.creds"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("got %#v, want %#v", got, want)
+	}
+}
