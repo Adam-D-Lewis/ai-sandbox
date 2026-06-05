@@ -63,7 +63,8 @@ list in a config file:
     "/Users/me/dev/my-project": {
       "extra_mounts": ["~/dev/shared-lib"],
       "memory": "8g",
-      "cpus": 4
+      "cpus": 4,
+      "ports": ["3000:3000", "8000:8000"]
     }
   }
 }
@@ -75,6 +76,18 @@ list in a config file:
   at `~/.gitconfig` inside the sandbox).
 - `extra_mounts` — appended to `mounts`. Use for per-project additions.
 - `memory`, `cpus`, `image` — optional per-project overrides.
+- `ports` — each entry becomes a `-p host:container` publish, so a server
+  you start inside the sandbox is reachable from your laptop browser. With
+  `"3000:3000"`, a dev server on `:3000` inside shows up at
+  `http://localhost:3000` on the host.
+
+Two sandboxes can both serve `:3000` *inside*, but the host side of a
+publish is shared: if two projects map to the same host port (e.g. both
+`"3000:3000"`), only the first container binds and the second fails with
+`port is already allocated`. Give each project a distinct host port for
+the same container port: `"3001:3000"`, `"3002:3000"`, and so on. Ports are
+fixed when the container is created, so changing them needs `psb rm`
+followed by `psb`.
 
 Placeholders: `{{HOME}}`, `{{CWD}}`, `{{SHARED_DIR}}`. Shell-style `~/`
 and `$VAR` also work, on both sides of a `src:dest` entry. Paths that

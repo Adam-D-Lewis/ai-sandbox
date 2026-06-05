@@ -32,6 +32,7 @@ type Project struct {
 	Image       string   `json:"image,omitempty"`
 	Mounts      []string `json:"mounts,omitempty"`       // declarative mount list (replaces defaults)
 	ExtraMounts []string `json:"extra_mounts,omitempty"` // appended after mounts
+	Ports       []string `json:"ports,omitempty"`        // "host:container" port publishes
 }
 
 // File is the top-level JSON document.
@@ -49,6 +50,7 @@ type Effective struct {
 	SharedDir   string
 	Mounts      []string
 	ExtraMounts []string
+	Ports       []string
 }
 
 // Resolve loads `path`, merges Default and the project entry keyed by
@@ -78,6 +80,7 @@ func Resolve(path, project string, base Effective) Effective {
 		}
 		cfg.Mounts = append(cfg.Mounts, p.Mounts...)
 		cfg.ExtraMounts = append(cfg.ExtraMounts, p.ExtraMounts...)
+		cfg.Ports = append(cfg.Ports, p.Ports...)
 	}
 	apply(raw.Default)
 	// Apply every project entry whose key matches `project`, least-specific
