@@ -80,10 +80,6 @@ RUN set -e \
  && kubectl version --client=true \
  && k9s version
 
-# Install pi from upstream release tarball. Tarball ships docs/, examples/,
-# CHANGELOG.md, README.md, assets/, export-html/ — none touched by the running
-# binary, all stripped post-extract. The runtime needs `pi` + `package.json` +
-# `theme/` + `photon_rs_bg.wasm`.
 RUN set -e \
  && case "$TARGETARCH" in \
       arm64) ARCH=arm64 ;; \
@@ -95,7 +91,6 @@ RUN set -e \
  && curl -fsSL -o /tmp/pi.tgz "$URL" \
  && mkdir -p /opt \
  && tar -xzf /tmp/pi.tgz -C /opt \
- && rm -rf /opt/pi/docs /opt/pi/examples /opt/pi/assets /opt/pi/export-html \
  && ln -sf /opt/pi/pi /usr/local/bin/pi \
  && rm /tmp/pi.tgz \
  && /usr/local/bin/pi --version
