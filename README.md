@@ -13,6 +13,8 @@ The CLI is called `psb`. One command spins up (or re-enters) a sandbox
 for the current project and drops you into a shell where `claude` and
 `pi` are already installed.
 
+![architecture](docs/architecture.svg)
+
 ## Install
 
 ```sh
