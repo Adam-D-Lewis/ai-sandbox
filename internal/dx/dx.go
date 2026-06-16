@@ -1,8 +1,8 @@
-// Package dx is the docker-shell-out seam for psb.
+// Package dx is the docker-shell-out seam for aisb.
 //
 // Layer 1 (Executor) is the only seam tests fake. Layer 2 is a set of
 // pure helper functions composed on top — argv construction, output
-// parsing, and the small set of operations psb needs.
+// parsing, and the small set of operations aisb needs.
 package dx
 
 import (
@@ -87,7 +87,7 @@ type Info struct {
 	StartedAt time.Time
 	NanoCpus  string // raw int64 string from HostConfig.NanoCpus
 	Memory    string // raw int64 string from HostConfig.Memory (bytes)
-	CWDLabel  string // psb.cwd label, "" if absent
+	CWDLabel  string // aisb.cwd label, "" if absent
 }
 
 func ContainerExists(e Executor, name string) bool {
@@ -131,7 +131,7 @@ func ListNames(e Executor, namePrefix string) ([]string, error) {
 	return strings.Fields(out), nil
 }
 
-// Inspect fetches state, started-at, cpu/mem limits, and the psb.cwd
+// Inspect fetches state, started-at, cpu/mem limits, and the aisb.cwd
 // label for each named container.
 func Inspect(e Executor, names ...string) ([]Info, error) {
 	if len(names) == 0 {
@@ -140,7 +140,7 @@ func Inspect(e Executor, names ...string) ([]Info, error) {
 	args := append([]string{"inspect", "--format",
 		`{{.Name}}` + "\t" + `{{.State.Status}}` + "\t" + `{{.State.StartedAt}}` + "\t" +
 			`{{.HostConfig.NanoCpus}}` + "\t" + `{{.HostConfig.Memory}}` + "\t" +
-			`{{index .Config.Labels "psb.cwd"}}`}, names...)
+			`{{index .Config.Labels "aisb.cwd"}}`}, names...)
 	out, err := e.Output(args...)
 	if err != nil {
 		return nil, err

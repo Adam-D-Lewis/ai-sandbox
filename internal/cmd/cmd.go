@@ -1,6 +1,6 @@
-// Package cmd implements the per-subcommand business logic for psb.
+// Package cmd implements the per-subcommand business logic for aisb.
 //
-// Each method on Handler corresponds to one CLI verb (`psb up`, `psb stop`,
+// Each method on Handler corresponds to one CLI verb (`aisb up`, `aisb stop`,
 // etc.) and returns an error rather than killing the process — main.go
 // decides how to surface failures. The image-build verb stays in main.go
 // because it is bound to an embedded asset that only the binary's package
@@ -18,7 +18,7 @@ import (
 	"github.com/aktech/ai-sandbox/internal/mountresolver"
 )
 
-// Logger is the subset of psb's logger that command handlers need. Defining
+// Logger is the subset of aisb's logger that command handlers need. Defining
 // it here (rather than importing main's logger type) keeps cmd self-
 // contained and lets tests stub it. Die is intentionally absent — handlers
 // return errors instead of calling os.Exit.
@@ -36,12 +36,12 @@ type Handler struct {
 }
 
 // ensure creates the container (or starts it if it already exists) without
-// attaching a shell. extraLabels are added alongside the default psb.cwd label.
+// attaching a shell. extraLabels are added alongside the default aisb.cwd label.
 func (h Handler) ensure(name string, c cfg.Effective, home, cwd string, extraLabels map[string]string) error {
 	h.Log.Log(fmt.Sprintf("project: %s  container: %s", filepath.Base(cwd), name))
 
 	if !dx.ImageExists(h.Docker, c.Image) {
-		return fmt.Errorf("image %s not found — run `psb build`", c.Image)
+		return fmt.Errorf("image %s not found — run `aisb build`", c.Image)
 	}
 
 	if dx.ContainerExists(h.Docker, name) {
@@ -73,8 +73,8 @@ func (h Handler) Up(name string, c cfg.Effective, home, cwd string) error {
 }
 
 // Create prepares the container non-interactively (no shell) and prints its
-// name to stdout, so other tools can layer on top of a psb sandbox while
-// reusing psb's mount/image configuration.
+// name to stdout, so other tools can layer on top of an aisb sandbox while
+// reusing aisb's mount/image configuration.
 func (h Handler) Create(name string, c cfg.Effective, home, cwd string, extraLabels map[string]string) error {
 	if err := h.ensure(name, c, home, cwd, extraLabels); err != nil {
 		return err
@@ -119,14 +119,14 @@ func (h Handler) Status(name string) error {
 	return dx.PrintStatusTable(h.Docker, name)
 }
 
-// LS prints a colorized table of all psb-* containers.
+// LS prints a colorized table of all aisb-* containers.
 func (h Handler) LS() error {
-	names, err := dx.ListNames(h.Docker, "psb-")
+	names, err := dx.ListNames(h.Docker, "aisb-")
 	if err != nil {
 		return err
 	}
 	if len(names) == 0 {
-		fmt.Println("no psb-* containers")
+		fmt.Println("no aisb-* containers")
 		return nil
 	}
 	infos, err := dx.Inspect(h.Docker, names...)
@@ -169,7 +169,7 @@ func (h Handler) LS() error {
 }
 
 // create issues `docker run -d` for a fresh container. Internal helper
-// shared by Up and Create. extraLabels are merged on top of psb.cwd.
+// shared by Up and Create. extraLabels are merged on top of aisb.cwd.
 func (h Handler) create(name string, c cfg.Effective, home, cwd string, extraLabels map[string]string) error {
 	h.Log.Step(fmt.Sprintf("creating container %s (image=%s, mem=%s, cpus=%s)", name, c.Image, c.Memory, c.CPUs))
 	if err := os.MkdirAll(c.SharedDir, 0o755); err != nil {
@@ -177,7 +177,7 @@ func (h Handler) create(name string, c cfg.Effective, home, cwd string, extraLab
 	}
 	mounts := mountresolver.Resolve(c.Mounts, c.ExtraMounts,
 		mountresolver.Env{Home: home, CWD: cwd, SharedDir: c.SharedDir}, h.Log)
-	labels := map[string]string{"psb.cwd": cwd}
+	labels := map[string]string{"aisb.cwd": cwd}
 	for k, v := range extraLabels {
 		labels[k] = v
 	}

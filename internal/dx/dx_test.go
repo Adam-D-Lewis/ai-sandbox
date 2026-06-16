@@ -29,7 +29,7 @@ func argPairs(argv []string, flag string) []string {
 func TestCreate_PublishesPorts(t *testing.T) {
 	r := &recorder{}
 	err := Create(r, ContainerSpec{
-		Name:   "psb-x",
+		Name:   "aisb-x",
 		Image:  "img",
 		Memory: "4g",
 		CPUs:   "2",

@@ -9,7 +9,7 @@ of directly on your laptop. Each project gets its own container, and the
 container can only see the folders you explicitly mount in. If the agent
 goes wrong, you lose the container — not your home directory.
 
-The CLI is called `psb`. One command spins up (or re-enters) a sandbox
+The CLI is called `aisb`. One command spins up (or re-enters) a sandbox
 for the current project and drops you into a shell where `claude` and
 `pi` are already installed.
 
@@ -18,8 +18,8 @@ for the current project and drops you into a shell where `claude` and
 ## Install
 
 ```sh
-make build       # builds ./bin/psb — put it on your $PATH
-psb build        # builds the Docker image (one-time, ~5 min)
+make build       # builds ./bin/aisb — put it on your $PATH
+aisb build       # builds the Docker image (one-time, ~5 min)
 ```
 
 You need Docker running. On macOS, [colima](https://github.com/abiosoft/colima)
@@ -29,7 +29,7 @@ works well (`colima start`).
 
 ```sh
 cd ~/dev/my-project
-psb              # first run: creates a container, drops you into zsh
+aisb             # first run: creates a container, drops you into zsh
                  # next runs: re-enters the same container
 ```
 
@@ -37,12 +37,12 @@ Inside the container, run `claude` or `pi` like you normally would.
 
 | Command          | What it does                                  |
 |------------------|-----------------------------------------------|
-| `psb`            | Enter the sandbox for the current project.    |
-| `psb stop`       | Stop the current project's container.         |
-| `psb rm`         | Delete the current project's container.       |
-| `psb ls`         | List all sandboxes.                           |
-| `psb status`     | Show one container's status.                  |
-| `psb build`      | Rebuild the image.                            |
+| `aisb`           | Enter the sandbox for the current project.    |
+| `aisb stop`      | Stop the current project's container.         |
+| `aisb rm`        | Delete the current project's container.       |
+| `aisb ls`        | List all sandboxes.                           |
+| `aisb status`    | Show one container's status.                  |
+| `aisb build`     | Rebuild the image.                            |
 
 ## What gets mounted
 
@@ -88,8 +88,8 @@ publish is shared: if two projects map to the same host port (e.g. both
 `"3000:3000"`), only the first container binds and the second fails with
 `port is already allocated`. Give each project a distinct host port for
 the same container port: `"3001:3000"`, `"3002:3000"`, and so on. Ports are
-fixed when the container is created, so changing them needs `psb rm`
-followed by `psb`.
+fixed when the container is created, so changing them needs `aisb rm`
+followed by `aisb`.
 
 Placeholders: `{{HOME}}`, `{{CWD}}`, `{{SHARED_DIR}}`. Shell-style `~/`
 and `$VAR` also work, on both sides of a `src:dest` entry. Paths that
@@ -97,14 +97,14 @@ don't exist on the host are skipped with a warning.
 
 ## Environment overrides
 
-| Var                | Default                              |
+| Var                 | Default                              |
 |--------------------|--------------------------------------|
-| `PSB_IMAGE_NAME`   | `ai-sandbox-pi:latest`               |
-| `PSB_MEMORY`       | `4g`                                 |
-| `PSB_CPUS`         | `2`                                  |
-| `PSB_SHARED_DIR`   | `~/sb-shared`                        |
-| `PSB_CONFIG_FILE`  | `~/.config/ai-sandbox/config.json`   |
-| `ANTHROPIC_API_KEY`| passed through to the container      |
+| `AISB_IMAGE_NAME`   | `ai-sandbox-pi:latest`               |
+| `AISB_MEMORY`       | `4g`                                 |
+| `AISB_CPUS`         | `2`                                  |
+| `AISB_SHARED_DIR`   | `~/sb-shared`                        |
+| `AISB_CONFIG_FILE`  | `~/.config/ai-sandbox/config.json`   |
+| `ANTHROPIC_API_KEY` | passed through to the container      |
 
 ## What's in the image
 

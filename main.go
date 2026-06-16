@@ -1,4 +1,4 @@
-// psb — launch a Docker (colima) sandbox per project. Image bundles `pi`
+// aisb — launch a Docker (colima) sandbox per project. Image bundles `pi`
 // and `claude`; pick whichever you need from inside the shell.
 //
 // Per-project overrides via ~/.config/ai-sandbox/config.json:
@@ -34,7 +34,7 @@ import (
 	"github.com/aktech/ai-sandbox/internal/dx"
 )
 
-// labelFlags collects repeated -label k=v values for `psb create`.
+// labelFlags collects repeated -label k=v values for `aisb create`.
 type labelFlags []string
 
 func (l *labelFlags) String() string     { return strings.Join(*l, ",") }
@@ -62,7 +62,7 @@ func envDefault(key, def string) string {
 }
 
 func cfgPath() string {
-	return envDefault("PSB_CONFIG_FILE", filepath.Join(os.Getenv("HOME"), ".config", "ai-sandbox", "config.json"))
+	return envDefault("AISB_CONFIG_FILE", filepath.Join(os.Getenv("HOME"), ".config", "ai-sandbox", "config.json"))
 }
 
 // ---------- log helpers ----------
@@ -119,7 +119,7 @@ func containerName(prefix string) (string, error) {
 // ---------- build (kept here because it owns the embedded Dockerfile) ----------
 
 func cmdBuild(log *logger) error {
-	image := envDefault("PSB_IMAGE_NAME", "ai-sandbox-pi:latest")
+	image := envDefault("AISB_IMAGE_NAME", "ai-sandbox-pi:latest")
 	piVersion := envDefault("PI_VERSION", "latest")
 	uid := fmt.Sprintf("%d", os.Getuid())
 	gid := fmt.Sprintf("%d", os.Getgid())
@@ -128,7 +128,7 @@ func cmdBuild(log *logger) error {
 		return fmt.Errorf("HOME not set")
 	}
 
-	tmp, err := os.MkdirTemp("", "psb-build-*")
+	tmp, err := os.MkdirTemp("", "aisb-build-*")
 	if err != nil {
 		return fmt.Errorf("temp dir: %w", err)
 	}
@@ -166,15 +166,15 @@ func cmdBuild(log *logger) error {
 // ---------- main ----------
 
 func usage() {
-	fmt.Println(`psb — launch a Docker sandbox per project. Image bundles pi + claude.
+	fmt.Println(`aisb — launch a Docker sandbox per project. Image bundles pi + claude.
 
 Usage:
-  psb              create or attach + shell into psb-<project>
-  psb stop         stop the project's container
-  psb rm [n...]    destroy current container, or named ones
-  psb status       show container status
-  psb ls           list all psb-* containers
-  psb build        (re)build the image
+  aisb             create or attach + shell into aisb-<project>
+  aisb stop        stop the project's container
+  aisb rm [n...]   destroy current container, or named ones
+  aisb status      show container status
+  aisb ls          list all aisb-* containers
+  aisb build       (re)build the image
 
 Config file (JSON):
   ` + filepath.Join(os.Getenv("HOME"), ".config/ai-sandbox/config.json") + `
@@ -189,17 +189,17 @@ Config file (JSON):
   Also supports ~/ and $ENV_VAR expansion.
 
 Env vars (override config defaults):
-  PSB_IMAGE_NAME   image tag (default: ai-sandbox-pi:latest)
-  PSB_MEMORY       memory limit (default: 4g)
-  PSB_CPUS         cpu limit (default: 2)
-  PSB_SHARED_DIR   host↔container exchange dir (default: ~/sb-shared)
-  PSB_CONFIG_FILE  config file path (default: ~/.config/ai-sandbox/config.json)
-  HOMELAB_URL      passed through to container
+  AISB_IMAGE_NAME   image tag (default: ai-sandbox-pi:latest)
+  AISB_MEMORY       memory limit (default: 4g)
+  AISB_CPUS         cpu limit (default: 2)
+  AISB_SHARED_DIR   host↔container exchange dir (default: ~/sb-shared)
+  AISB_CONFIG_FILE  config file path (default: ~/.config/ai-sandbox/config.json)
+  HOMELAB_URL       passed through to container
   ANTHROPIC_API_KEY passed through to container (claude API auth)`)
 }
 
 func main() {
-	log := newLogger("psb")
+	log := newLogger("aisb")
 	h := cmd.Handler{Log: log, Docker: dx.Cmd{}}
 
 	if _, err := exec.LookPath("docker"); err != nil {
@@ -216,14 +216,14 @@ func main() {
 	}
 
 	base := cfg.Effective{
-		Image:     envDefault("PSB_IMAGE_NAME", "ai-sandbox-pi:latest"),
-		Memory:    envDefault("PSB_MEMORY", "4g"),
-		CPUs:      envDefault("PSB_CPUS", "2"),
-		SharedDir: envDefault("PSB_SHARED_DIR", filepath.Join(home, "sb-shared")),
+		Image:     envDefault("AISB_IMAGE_NAME", "ai-sandbox-pi:latest"),
+		Memory:    envDefault("AISB_MEMORY", "4g"),
+		CPUs:      envDefault("AISB_CPUS", "2"),
+		SharedDir: envDefault("AISB_SHARED_DIR", filepath.Join(home, "sb-shared")),
 	}
 	c := cfg.Resolve(cfgPath(), cwd, base)
 
-	name, err := containerName("psb")
+	name, err := containerName("aisb")
 	if err != nil {
 		log.Die("container name: "+err.Error(), 1)
 	}
@@ -244,10 +244,10 @@ func main() {
 		dieOn(h.Up(name, c, home, cwd))
 	case "create":
 		// Non-interactive: prepare a sandbox (all configured mounts) and print
-		// its name. Lets other tools (e.g. darb) reuse psb's sandbox.
+		// its name. Lets other tools (e.g. darb) reuse aisb's sandbox.
 		fs := flag.NewFlagSet("create", flag.ExitOnError)
 		workdir := fs.String("workdir", cwd, "project directory to sandbox")
-		nameOverride := fs.String("name", "", "container name (default: psb-<dir>)")
+		nameOverride := fs.String("name", "", "container name (default: aisb-<dir>)")
 		origin := fs.String("origin", "", "path matched against the projects config "+
 			"(default: workdir). Lets a caller running in a throwaway clone route by the real source folder.")
 		var labels labelFlags
@@ -272,14 +272,14 @@ func main() {
 		cc := cfg.Resolve(cfgPath(), matchPath, base)
 		nm := *nameOverride
 		if nm == "" {
-			nm = "psb-" + sanitizeName(filepath.Base(wd))
+			nm = "aisb-" + sanitizeName(filepath.Base(wd))
 		}
 		dieOn(h.Create(nm, cc, home, wd, labels.toMap()))
 	case "stop":
 		dieOn(h.Stop(name))
 	case "rm", "remove":
-		// `psb rm`            → current project's container
-		// `psb rm name [...]` → explicit list of psb-* containers
+		// `aisb rm`            → current project's container
+		// `aisb rm name [...]` → explicit list of aisb-* containers
 		targets := []string{name}
 		if len(os.Args) > 2 {
 			targets = os.Args[2:]

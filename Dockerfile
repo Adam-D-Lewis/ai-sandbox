@@ -132,7 +132,7 @@ RUN set -e \
     '
 
 # Confirm shims resolve under the unprivileged user too — catches perm bugs at
-# build time rather than first `psb` shell.
+# build time rather than first `aisb` shell.
 RUN set -e \
  && su -s /bin/sh agent -c ' \
       mise    --version && \
