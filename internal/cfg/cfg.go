@@ -1,4 +1,4 @@
-// Package cfg loads the per-project psb config and merges it with
+// Package cfg loads the per-project aisb config and merges it with
 // caller-provided defaults into a single Effective config.
 //
 // File schema (~/.config/ai-sandbox/config.json):

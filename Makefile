@@ -1,6 +1,6 @@
 .PHONY: build clean
 
-BIN := bin/psb
+BIN := bin/aisb
 
 build:
 	go build -trimpath -ldflags='-s -w' -o $(BIN) .

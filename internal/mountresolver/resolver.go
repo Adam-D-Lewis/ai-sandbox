@@ -52,7 +52,7 @@ func expandAll(in []string, env Env) []string {
 // expand turns one raw config entry into a "src:dest" spec. An entry without
 // a colon mounts the source at the same path inside the container; "src:dest"
 // remaps it. Each side is expanded independently — host paths never contain a
-// colon on the platforms psb targets, so the first colon delimits the two.
+// colon on the platforms aisb targets, so the first colon delimits the two.
 func expand(s string, env Env) string {
 	src, dst, hasDst := strings.Cut(s, ":")
 	src = expandPath(src, env)
