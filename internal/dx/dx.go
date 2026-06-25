@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -182,6 +183,14 @@ func Create(e Executor, s ContainerSpec) error {
 	}
 	if s.GPUs != "" {
 		args = append(args, "--gpus", s.GPUs)
+		// Pass the NVIDIA device nodes explicitly so Docker records them in the
+		// container's systemd scope (DeviceAllow=). Without this, the nvidia
+		// runtime hook whitelists them out-of-band and any `systemctl
+		// daemon-reload` silently revokes GPU access — NVML "Unknown Error"
+		// though the device nodes remain visible. See nvidia-container-toolkit#48.
+		for _, dev := range nvidiaDevices() {
+			args = append(args, "--device", dev)
+		}
 	}
 	for k, v := range s.Labels {
 		args = append(args, "--label", k+"="+v)
@@ -203,6 +212,21 @@ func Create(e Executor, s ContainerSpec) error {
 	}
 	args = append(args, s.Image)
 	return e.Run(args...)
+}
+
+// nvidiaDevices returns host NVIDIA character device nodes (nvidia0..N,
+// nvidiactl, nvidia-uvm, nvidia-uvm-tools, nvidia-modeset). Skips the
+// nvidia-caps directory, which is not a device node. Enumerated on the host
+// where aisb runs, which must be the same host as the Docker daemon.
+func nvidiaDevices() []string {
+	matches, _ := filepath.Glob("/dev/nvidia*")
+	var devs []string
+	for _, m := range matches {
+		if fi, err := os.Stat(m); err == nil && !fi.IsDir() {
+			devs = append(devs, m)
+		}
+	}
+	return devs
 }
 
 func Start(e Executor, name string) error  { return e.RunSilent("start", name) }
