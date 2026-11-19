@@ -44,6 +44,9 @@ Inside the container, run `claude`, `codex`, or `pi` like you normally would.
 | `aisb status`    | Show one container's status.                  |
 | `aisb build`     | Rebuild the image.                            |
 
+`aisb build --no-cache` skips Docker's build cache and rebuilds every layer.
+Use it to pick up new releases of the unpinned tools (Claude Code, Codex, pi).
+
 ## What gets mounted
 
 By default the container only sees the project directory. Anything else

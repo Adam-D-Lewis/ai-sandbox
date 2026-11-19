@@ -118,7 +118,7 @@ func containerName(prefix string) (string, error) {
 
 // ---------- build (kept here because it owns the embedded Dockerfile) ----------
 
-func cmdBuild(log *logger) error {
+func cmdBuild(log *logger, noCache bool) error {
 	image := envDefault("AISB_IMAGE_NAME", "ai-sandbox-pi:latest")
 	piVersion := envDefault("PI_VERSION", "latest")
 	uid := fmt.Sprintf("%d", os.Getuid())
@@ -138,15 +138,20 @@ func cmdBuild(log *logger) error {
 		return fmt.Errorf("write Dockerfile: %w", err)
 	}
 
-	log.Step(fmt.Sprintf("building %s (pi=%s, home=%s, uid=%s, gid=%s)", image, piVersion, home, uid, gid))
-	build := exec.Command("docker", "build",
-		"--build-arg", "PI_VERSION="+piVersion,
-		"--build-arg", "AGENT_UID="+uid,
-		"--build-arg", "AGENT_GID="+gid,
-		"--build-arg", "AGENT_HOME="+home,
+	log.Step(fmt.Sprintf("building %s (pi=%s, home=%s, uid=%s, gid=%s, no-cache=%t)", image, piVersion, home, uid, gid, noCache))
+	args := []string{"build",
+		"--build-arg", "PI_VERSION=" + piVersion,
+		"--build-arg", "AGENT_UID=" + uid,
+		"--build-arg", "AGENT_GID=" + gid,
+		"--build-arg", "AGENT_HOME=" + home,
 		"-t", image,
-		tmp,
-	)
+	}
+	if noCache {
+		// Unpinned installs (pi, claude, codex) otherwise stay frozen at
+		// whatever release the cached layer fetched.
+		args = append(args, "--no-cache")
+	}
+	build := exec.Command("docker", append(args, tmp)...)
 	build.Stdout = os.Stdout
 	build.Stderr = os.Stderr
 	if err := build.Run(); err != nil {
@@ -174,7 +179,7 @@ Usage:
   aisb rm [n...]   destroy current container, or named ones
   aisb status      show container status
   aisb ls          list all aisb-* containers
-  aisb build       (re)build the image
+  aisb build       (re)build the image; --no-cache skips Docker's build cache
 
 Config file (JSON):
   ` + filepath.Join(os.Getenv("HOME"), ".config/ai-sandbox/config.json") + `
@@ -295,7 +300,10 @@ func main() {
 	case "ls", "list":
 		dieOn(h.LS())
 	case "build":
-		dieOn(cmdBuild(log))
+		fs := flag.NewFlagSet("build", flag.ExitOnError)
+		noCache := fs.Bool("no-cache", false, "rebuild every layer, ignoring Docker's build cache")
+		_ = fs.Parse(os.Args[2:])
+		dieOn(cmdBuild(log, *noCache))
 	case "-h", "--help", "help":
 		usage()
 	default:
